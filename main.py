@@ -234,7 +234,7 @@ def programms_to_xmltv(programms):
         programm_xml = (
             f'{programm_xml}<programme start="'
             f"{programm['start'].strftime('%Y%m%d%H%M%S %z')}\" "
-            f"stop=\"{programm['stop'].strftime('%Y%m%d%H%M%S %z')}\" channel=\"{programm['channel']}\">"
+            f"stop=\"{programm['stop'].strftime('%Y%m%d%H%M%S %z')}\" channel=\"{gen_channel_id_from_name(programm['channel'])}\">"
         )
 
         if "title" in programm:
