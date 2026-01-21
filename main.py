@@ -132,7 +132,10 @@ def get_channel_list():
                     channel_obj["display_name"]
                 )
 
-            channel_list.append(channel_obj)
+            if any(x["id"] == channel_obj["id"] for x in channel_list):
+                print(f"[!] Duplicate channel: {channel_obj['id']}")
+            else:
+                channel_list.append(channel_obj)
 
     return channel_list
 
