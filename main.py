@@ -132,7 +132,10 @@ def get_channel_list():
                     channel_obj["display_name"]
                 )
 
-            channel_list.append(channel_obj)
+            if any(x["id"] == channel_obj["id"] for x in channel_list):
+                print(f"[!] Duplicate channel: {channel_obj['id']}")
+            else:
+                channel_list.append(channel_obj)
 
     return channel_list
 
@@ -234,7 +237,7 @@ def programms_to_xmltv(programms):
         programm_xml = (
             f'{programm_xml}<programme start="'
             f"{programm['start'].strftime('%Y%m%d%H%M%S %z')}\" "
-            f"stop=\"{programm['stop'].strftime('%Y%m%d%H%M%S %z')}\" channel=\"{programm['channel']}\">"
+            f"stop=\"{programm['stop'].strftime('%Y%m%d%H%M%S %z')}\" channel=\"{gen_channel_id_from_name(programm['channel'])}\">"
         )
 
         if "title" in programm:
