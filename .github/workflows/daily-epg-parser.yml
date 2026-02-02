@@ -24,12 +24,23 @@ jobs:
     - name: Run main.py
       run: python main.py
 
+    - name: Ensure XML files exist
+      run: |
+        missing=0
+        for file in tv7_epg.xml tv7_init7_epg.xml tv7_teleboy_epg.xml; do
+          if [ ! -f "$file" ]; then
+            echo "Error: $file not found!"
+            missing=1
+          fi
+        done
+        if [ $missing -eq 1 ]; then
+          exit 1
+        fi
+
     - name: Gzip XML files
       run: |
         for file in tv7_epg.xml tv7_init7_epg.xml tv7_teleboy_epg.xml; do
-          if [ -f "$file" ]; then
-            gzip -c "$file" > "$file.gz"
-          fi
+          gzip -c "$file" > "$file.gz"
         done
 
     - name: Commit results to TV7_EPG_Data
@@ -39,19 +50,14 @@ jobs:
         git clone https://x-access-token:${PAT_TOKEN}@github.com/jokay/TV7_EPG_Data.git target
         cd target
 
-        # Copy gzipped files to repo root
-        cp ../tv7_epg.xml.gz .
-        cp ../tv7_init7_epg.xml.gz .
-        cp ../tv7_teleboy_epg.xml.gz .
+        # Copy gzipped files to root
+        cp -u ../tv7_epg.xml.gz ../tv7_init7_epg.xml.gz ../tv7_teleboy_epg.xml.gz . 2>/dev/null || true
 
-        # Configure Git author
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-        # Stage files
         git add .
 
-        # Commit and push only if changes exist
         if git diff --cached --quiet; then
           echo "No changes to commit"
         else
