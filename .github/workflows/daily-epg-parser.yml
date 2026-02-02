@@ -24,6 +24,13 @@ jobs:
     - name: Run main.py
       run: python main.py
 
+    - name: Stop if no XML files
+      run: |
+        if ! ls tv7_epg.xml tv7_init7_epg.xml tv7_teleboy_epg.xml 1> /dev/null 2>&1; then
+          echo "Error: No XML files were generated!"
+          exit 1
+        fi
+
     - name: Gzip existing XML files
       run: |
         files=""
