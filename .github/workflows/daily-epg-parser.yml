@@ -2,7 +2,7 @@ name: Daily EPG Parser
 
 on:
   schedule:
-    - cron: "0 0 * * *"  # daily at midnight UTC
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 jobs:
@@ -24,6 +24,9 @@ jobs:
     - name: Run EPG Parser
       run: python main.py
 
+    - name: Ensure output folder exists
+      run: mkdir -p output
+
     - name: Commit results to TV7_EPG_Data
       env:
         PAT_TOKEN: ${{ secrets.TARGET_REPO_PAT }}
@@ -31,14 +34,16 @@ jobs:
         # Clone target repo using PAT
         git clone https://x-access-token:${PAT_TOKEN}@github.com/jokay/TV7_EPG_Data.git target
 
-        # Copy parser output into target
-        rsync -av --delete output/ target/
+        # Copy parser output to target repo
+        rsync -av --ignore-missing-args --delete output/ target/
 
         cd target
+
+        # Configure Git author
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-        # Commit only if changes exist
+        # Commit and push only if there are changes
         git add .
         if git diff --cached --quiet; then
           echo "No changes to commit"
