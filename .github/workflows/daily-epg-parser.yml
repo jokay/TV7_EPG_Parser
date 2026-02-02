@@ -34,8 +34,8 @@ jobs:
         # Clone target repo using PAT
         git clone https://x-access-token:${PAT_TOKEN}@github.com/jokay/TV7_EPG_Data.git target
 
-        # Copy parser output to target repo
-        rsync -av --ignore-missing-args --delete output/ target/
+        # Copy all files from output/ directly into root of target repo
+        rsync -av --ignore-missing-args --exclude='.git' output/ target/
 
         cd target
 
@@ -43,11 +43,18 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-        # Commit and push only if there are changes
+        # Stage all files
         git add .
+
+        # Commit and push (works even for first commit)
         if git diff --cached --quiet; then
           echo "No changes to commit"
         else
-          git commit -m "Daily EPG update $(date -u +"%Y-%m-%d %H:%M UTC")"
+          # Detect if repo is empty (first commit)
+          if [ ! -f .git/HEAD ]; then
+            git commit --allow-empty -m "Initial EPG data commit $(date -u +"%Y-%m-%d %H:%M UTC")"
+          else
+            git commit -m "Daily EPG update $(date -u +"%Y-%m-%d %H:%M UTC")"
+          fi
           git push origin master
         fi
