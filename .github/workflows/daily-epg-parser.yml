@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout this repo
+    - name: Checkout
       uses: actions/checkout@v4
 
     - name: Set up Python
@@ -21,40 +21,40 @@ jobs:
     - name: Install dependencies
       run: python -m pip install --upgrade pip && pip install -r requirements.txt
 
-    - name: Run EPG Parser
+    - name: Run main.py
       run: python main.py
 
-    - name: Ensure output folder exists
-      run: mkdir -p output
+    - name: Gzip XML files
+      run: |
+        for file in tv7_epg.xml tv7_init7_epg.xml tv7_teleboy_epg.xml; do
+          if [ -f "$file" ]; then
+            gzip -c "$file" > "$file.gz"
+          fi
+        done
 
     - name: Commit results to TV7_EPG_Data
       env:
         PAT_TOKEN: ${{ secrets.TARGET_REPO_PAT }}
       run: |
-        # Clone target repo using PAT
         git clone https://x-access-token:${PAT_TOKEN}@github.com/jokay/TV7_EPG_Data.git target
-
-        # Copy all files from output/ directly into root of target repo
-        rsync -av --ignore-missing-args --exclude='.git' output/ target/
-
         cd target
+
+        # Copy gzipped files to repo root
+        cp ../tv7_epg.xml.gz .
+        cp ../tv7_init7_epg.xml.gz .
+        cp ../tv7_teleboy_epg.xml.gz .
 
         # Configure Git author
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-        # Stage all files
+        # Stage files
         git add .
 
-        # Commit and push (works even for first commit)
+        # Commit and push only if changes exist
         if git diff --cached --quiet; then
           echo "No changes to commit"
         else
-          # Detect if repo is empty (first commit)
-          if [ ! -f .git/HEAD ]; then
-            git commit --allow-empty -m "Initial EPG data commit $(date -u +"%Y-%m-%d %H:%M UTC")"
-          else
-            git commit -m "Daily EPG update $(date -u +"%Y-%m-%d %H:%M UTC")"
-          fi
+          git commit -m "Daily TV7 EPG update $(date -u +"%Y-%m-%d %H:%M UTC")"
           git push origin master
         fi
