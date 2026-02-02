@@ -38,12 +38,13 @@ jobs:
     - name: Commit results to TV7_EPG_Data
       env:
         PAT_TOKEN: ${{ secrets.TARGET_REPO_PAT }}
+        gzipped_files: ${{ env.gzipped_files }}
       run: |
         git clone https://x-access-token:${PAT_TOKEN}@github.com/jokay/TV7_EPG_Data.git target
         cd target
 
         # Copy only gzipped files that exist
-        for file in ${{ env.gzipped_files }}; do
+        for file in $gzipped_files; do
           cp "$file" .
         done
 
@@ -57,3 +58,4 @@ jobs:
         else
           git commit -m "Daily EPG update $(date -u +"%Y-%m-%d %H:%M UTC")"
           git push origin master
+        fi
