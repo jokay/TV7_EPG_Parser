@@ -42,6 +42,7 @@ def __main__():
     try:
         init7_epg_raw = init7Obj.get_epg(7 * 24 * 60 * 60, 7 * 24 * 60 * 60)
         init7_epg = match_init7_epg(channels, init7_epg_raw)
+        init7_epg = deduplicate_programms(init7_epg)
     except:
         print("[*] Failed. Continue processing other sources.")
 
@@ -53,6 +54,7 @@ def __main__():
     except:
         print("[*] Failed. Continue processing other sources.")
     teleboy_epg_past = match_teleboy_epg(channels, teleboy_raw)
+    teleboy_epg_past = deduplicate_programms(teleboy_epg_past)
 
     print("[*] Getting EPG data from teleboy.ch")
     teleboy_raw = ""
@@ -61,6 +63,7 @@ def __main__():
     except:
         print("[*] Failed. Continue processing other sources.")
     teleboy_epg = match_teleboy_epg(channels, teleboy_raw)
+    teleboy_epg = deduplicate_programms(teleboy_epg)
 
     # generate the xml for the channels
     channels_xmltv = channels_to_xmltv(channels)
@@ -92,6 +95,7 @@ def __main__():
     full_epg.extend(teleboy_epg)
     full_epg.extend(teleboy_epg_past)
     full_epg.extend(init7_epg)
+    full_epg = deduplicate_programms(full_epg)
 
     programms_xmltv = programms_to_xmltv(full_epg)
     if len(full_epg) > 0:
@@ -229,6 +233,14 @@ def match_teleboy_epg(channel_list, teleboy_epg):
     return programms
 
 
+def has_series_category(programm):
+    categories = []
+    if programm.get("categories"):
+        categories.extend(programm["categories"])
+    if programm.get("category"):
+        categories.append(programm["category"])
+    return any(str(category).strip().lower() == "series" for category in categories)
+
 def programms_to_xmltv(programms):
     print(f"[*] Generating XML for {str(len(programms))} programms")
     programms_xml = ""
@@ -245,8 +257,11 @@ def programms_to_xmltv(programms):
                 f"{programm_xml}<title>{html.escape(programm['title'] or '')}</title>"
             )
 
-        if "sub_title" in programm:
-            programm_xml = f"{programm_xml}<sub-title>{html.escape(programm['sub_title'] or '')}</sub-title>"
+        # fall back to the title as subtitle so players like Jellyfin can
+        # distinguish individual episodes of recurring programmes
+        sub_title = programm.get("sub_title") or programm.get("title")
+        if sub_title:
+            programm_xml = f"{programm_xml}<sub-title>{html.escape(sub_title)}</sub-title>"
 
         if "desc" in programm:
             programm_xml = f"{programm_xml}<desc lang=\"de\">{html.escape(programm['desc'] or '')}</desc>"
@@ -284,11 +299,16 @@ def programms_to_xmltv(programms):
         if "country" in programm:
             programm_xml = f"{programm_xml}<country>{html.escape(programm['country'] or '')}</country>"
 
-        if "episode_num" in programm:
-            if "episode_num_system" in programm:
+        if programm.get("episode_num"):
+            if programm.get("episode_num_system"):
                 programm_xml = f"{programm_xml}<episode-num system=\"{programm['episode_num_system']}\">{programm['episode_num']}</episode-num>"
             else:
                 programm_xml = f"{programm_xml}<episode-num system=\"onscreen\">{programm['episode_num']}</episode-num>"
+        elif has_series_category(programm):
+            # mark series without an episode number (e.g. daily shows) as
+            # episodes by original-air-date so players like Plex treat them
+            # as series (allowing series recordings) instead of movies
+            programm_xml = f"{programm_xml}<episode-num system=\"original-air-date\">{programm['start'].strftime('%Y-%m-%d %H:%M:%S')}</episode-num>"
 
         programm_xml = f"{programm_xml}</programme>"
         programms_xml = programms_xml + programm_xml
@@ -315,5 +335,16 @@ def channels_to_xmltv(channel_list):
 
     return channels_xml
 
+
+def deduplicate_programms(programms):
+    seen = set()
+    unique_programms = []
+    for programm in programms:
+        identifier = (programm["start"].timestamp(), programm["stop"].timestamp(), gen_channel_id_from_name(programm['channel']))
+        if identifier not in seen:
+            seen.add(identifier)
+            unique_programms.append(programm)
+    print("Deduplicated from ", len(programms), "to", len(unique_programms))
+    return unique_programms
 
 __main__()
